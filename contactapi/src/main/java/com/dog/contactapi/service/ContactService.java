@@ -22,6 +22,8 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.dog.contactapi.constant.Constant.PHOTO_DIRECTORY;
+
 @Service
 @Slf4j
 @Transactional(rollbackOn = Exception.class)
@@ -49,9 +51,10 @@ public class ContactService {
         contactRepo.deleteById(id);
     }
 
-    public String uploadPhoto(String id, String photoUrl, MultipartFile file) {
+    public String uploadPhoto(String id, MultipartFile file) {
         log.info("Uploading photo for contact ID: {}", id);
-        Contact contact = contactRepo.getReferenceById(id);
+        String photoUrl = uploadFunction.apply(id, file);
+        Contact contact = getContact(id);
         contact.setPhotoUrl(photoUrl);
         contactRepo.save(contact);
         return photoUrl;
@@ -66,14 +69,14 @@ public class ContactService {
         log.info("Uploading photo for contact ID: {}", id);
         // Simulate photo upload and return URL
         try {
-            Path fileLocation = Paths.get("photos/").toAbsolutePath().normalize();
+            Path fileLocation = Paths.get(PHOTO_DIRECTORY).toAbsolutePath().normalize();
             if(!Files.exists(fileLocation)) {
                 Files.createDirectories(fileLocation);
             }
-            String extension = fileExtension.apply(imageFile.getOriginalFilename());
-            Files.copy(imageFile.getInputStream(), fileLocation.resolve(id + extension),REPLACE_EXISTING);
+            String filename = id + fileExtension.apply(imageFile.getOriginalFilename());
+            Files.copy(imageFile.getInputStream(), fileLocation.resolve(filename),REPLACE_EXISTING);
             return ServletUriComponentsBuilder.fromCurrentContextPath()
-                    .path("/contacts/image" + id + extension)
+                    .path("/contacts/image/" + filename)
                     .toUriString();
         } catch (Exception e) {
             throw new RuntimeException("Photo upload failed", e);
